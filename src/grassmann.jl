@@ -60,7 +60,7 @@ function Base.getproperty(Δ::GrassmannTangent, sym::Symbol)
     elseif sym ∈ (:U, :S, :V)
         v = Base.getfield(Δ, sym)
         v !== nothing && return v
-        U, S, V, = tsvd(Δ.Z; alg=default_svd_alg(Δ.Z))
+        U, S, V, = svd_compact(Δ.Z)
         Base.setfield!(Δ, :U, U)
         Base.setfield!(Δ, :S, S)
         Base.setfield!(Δ, :V, V)
@@ -198,7 +198,7 @@ function invretract(Wold::AbstractTensorMap, Wnew::AbstractTensorMap; alg=nothin
     space(Wold) == space(Wnew) || throw(SpaceMismatch())
     WodWn = Wold' * Wnew # V' * cos(S) * V * Y
     Wneworth = Wnew - Wold * WodWn
-    Vd, cS, VY = tsvd!(WodWn; alg=default_svd_alg(WodWn))
+    Vd, cS, VY = svd_compact!(WodWn)
     Scmplx = acos(cS)
     # acos always returns a complex TensorMap. We cast back to real if possible.
     S = scalartype(WodWn) <: Real && isreal(sectortype(Scmplx)) ? real(Scmplx) : Scmplx

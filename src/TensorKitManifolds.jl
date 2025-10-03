@@ -7,6 +7,9 @@ export Grassmann, Stiefel, Unitary
 export inner, retract, transport, transport!
 
 using TensorKit
+using MatrixAlgebraKit: MatrixAlgebraKit, AbstractAlgorithm, Algorithm, PolarViaSVD,
+                        LAPACK_DivideAndConquer, diagview
+import MatrixAlgebraKit as MAK
 
 # Every submodule -- Grassmann, Stiefel, and Unitary -- implements their own methods for
 # these. The signatures should be
@@ -28,23 +31,8 @@ checkbase(x, y, z, args...) = checkbase(checkbase(x, y), z, args...)
 # the machine epsilon for the elements of an object X, name inspired from eltype
 scalareps(X) = eps(real(scalartype(X)))
 
-# default SVD algorithm used in the algorithms
-default_svd_alg(::AbstractTensorMap) = TensorKit.SVD()
-
-function isisometry(W::AbstractTensorMap; tol=10 * scalareps(W))
-    WdW = W' * W
-    s = zero(float(real(scalartype(W))))
-    for (c, b) in blocks(WdW)
-        _subtractone!(b)
-        s += dim(c) * length(b)
-    end
-    return norm(WdW) <= tol * sqrt(s)
-end
-
-function isunitary(W::AbstractTensorMap; tol=10 * scalareps(W))
-    return isisometry(W; tol=tol) && isisometry(W'; tol=tol)
-end
-
+# TODO: these functions should be replaced by MAK functions
+projecthermitian(W::AbstractTensorMap) = projecthermitian!(copy(W))
 function projecthermitian!(W::AbstractTensorMap)
     codomain(W) == domain(W) ||
         throw(DomainError("Tensor with distinct domain and codomain cannot be hermitian."))
@@ -53,6 +41,8 @@ function projecthermitian!(W::AbstractTensorMap)
     end
     return W
 end
+
+projectantihermitian(W::AbstractTensorMap) = projectantihermitian!(copy(W))
 function projectantihermitian!(W::AbstractTensorMap)
     codomain(W) == domain(W) ||
         throw(DomainError("Tensor with distinct domain and codomain cannot be anithermitian."))
@@ -62,27 +52,18 @@ function projectantihermitian!(W::AbstractTensorMap)
     return W
 end
 
-struct PolarNewton <: TensorKit.OrthogonalFactorizationAlgorithm
-end
-function projectisometric!(W::AbstractTensorMap; alg=default_svd_alg(W))
-    if alg isa TensorKit.Polar || alg isa TensorKit.SDD
-        foreach(blocks(W)) do (c, b)
-            return _polarsdd!(b)
-        end
-    elseif alg isa TensorKit.SVD
-        foreach(blocks(W)) do (c, b)
-            return _polarsvd!(b)
-        end
-    elseif alg isa PolarNewton
-        foreach(blocks(W)) do (c, b)
-            return _polarnewton!(b)
-        end
-    else
-        throw(ArgumentError("unkown algorithm for projectisometric!: alg = $alg"))
+projectisometric(W::AbstractTensorMap; kwargs...) = projectisometric!(copy(W); kwargs...)
+function projectisometric!(W::AbstractTensorMap;
+                           alg::AbstractAlgorithm=MAK.select_algorithm(left_polar!, W))
+    TensorKit.foreachblock(W) do c, (b,)
+        return _left_polar!(b, alg)
     end
     return W
 end
 
+function projectcomplement(X::AbstractTensorMap, W::AbstractTensorMap, kwargs...)
+    return projectcomplement!(copy(X), W; kwargs...)
+end
 function projectcomplement!(X::AbstractTensorMap, W::AbstractTensorMap;
                             tol=10 * scalareps(X))
     P = W' * X
@@ -95,18 +76,6 @@ function projectcomplement!(X::AbstractTensorMap, W::AbstractTensorMap;
         nP = norm(P)
     end
     return X
-end
-
-projecthermitian(W::AbstractTensorMap) = projecthermitian!(copy(W))
-projectantihermitian(W::AbstractTensorMap) = projectantihermitian!(copy(W))
-
-function projectisometric(W::AbstractTensorMap;
-                          alg=default_svd_alg(W))
-    return projectisometric!(copy(W); alg=alg)
-end
-function projectcomplement(X::AbstractTensorMap, W::AbstractTensorMap,
-                           tol=10 * scalareps(X))
-    return projectcomplement!(copy(X), W; tol=tol)
 end
 
 include("auxiliary.jl")

@@ -70,20 +70,24 @@ function _subtractone!(a::AbstractMatrix)
     view(a, diagind(a)) .= view(a, diagind(a)) .- 1
     return a
 end
-function _polarsdd!(A::StridedMatrix)
-    U, S, V = svd!(A; alg=LinearAlgebra.DivideAndConquer())
-    return mul!(A, U, V')
+
+# TODO: _left_polar! is more or less the same as MAK.left_polar! but doesn't compute the P
+# which is not needed here. Can we unify this?
+function _left_polar!(A::StridedMatrix, alg::PolarViaSVD=PolarViaSVD(LAPACK_DivideAndConquer()))
+    U, _, Vᴴ = svd_compact!(A, alg.svdalg)
+    return mul!(A, U, Vᴴ)
 end
-function _polarsvd!(A::StridedMatrix)
-    U, S, V = svd!(A; alg=LinearAlgebra.QRIteration())
-    return mul!(A, U, V')
-end
+
+# TODO: can we move this to a dedicated MAK algorithm?
+MatrixAlgebraKit.@algdef PolarNewton
+
+_left_polar!(A::StridedMatrix, alg::PolarNewton) = _polarnewton!(A; alg.kwargs...)
 function _polarnewton!(A::StridedMatrix; tol=10 * scalareps(A), maxiter=5)
     m, n = size(A)
     @assert m >= n
     A2 = copy(A)
-    Q, R = qr!(A2)
-    Ri = ldiv!(UpperTriangular(R)', TensorKit.MatrixAlgebra.one!(similar(R)))
+    Q, R = LinearAlgebra.qr!(A2)
+    Ri = ldiv!(UpperTriangular(R)', MatrixAlgebraKit.one!(similar(R)))
     R, Ri = _avgdiff!(R, Ri)
     i = 1
     R2 = view(A, 1:n, 1:n)
@@ -91,16 +95,17 @@ function _polarnewton!(A::StridedMatrix; tol=10 * scalareps(A), maxiter=5)
     copyto!(R2, R)
     while maximum(abs, Ri) > tol
         if i == maxiter # if not converged by now, fall back to sdd
-            _polarsdd!(Ri)
+            _left_polar!(Ri)
             break
         end
-        Ri = ldiv!(lu!(R2)', TensorKit.MatrixAlgebra.one!(Ri))
+        Ri = ldiv!(lu!(R2)', MatrixAlgebraKit.one!(Ri))
         R, Ri = _avgdiff!(R, Ri)
         copyto!(R2, R)
         i += 1
     end
     return lmul!(Q, A)
 end
+
 # in place computation of the average and difference of two arrays
 function _avgdiff!(A::AbstractArray, B::AbstractArray)
     axes(A) == axes(B) || throw(DimensionMismatch())
@@ -124,7 +129,7 @@ end
 function _stiefelexp(W::StridedMatrix, A::StridedMatrix, Z::StridedMatrix, α)
     n, p = size(W)
     r = min(2 * p, n)
-    QQ, _ = qr!([W Z])
+    QQ, _ = LinearAlgebra.qr!([W Z])
     Q = similar(W, n, r - p)
     @inbounds for j in Base.OneTo(r - p)
         for i in Base.OneTo(n)
@@ -139,7 +144,7 @@ function _stiefelexp(W::StridedMatrix, A::StridedMatrix, Z::StridedMatrix, α)
     A2[1:p, (p + 1):end] .= (-α) .* (R')
     A2[(p + 1):end, (p + 1):end] .= 0
     U = [W Q] * exp(A2)
-    U = _polarnewton!(U)
+    U = _left_polar!(U, PolarNewton())
     W′ = U[:, 1:p]
     Q′ = U[:, (p + 1):end]
     R′ = R
@@ -152,7 +157,7 @@ function _stiefellog(Wold::StridedMatrix, Wnew::StridedMatrix;
     r = min(2 * p, n)
     P = Wold' * Wnew
     dW = Wnew - Wold * P
-    QQ, _ = qr!([Wold dW])
+    QQ, _ = LinearAlgebra.qr!([Wold dW])
     Q = similar(Wold, n, r - p)
     @inbounds for j in Base.OneTo(r - p)
         for i in Base.OneTo(n)
@@ -161,23 +166,17 @@ function _stiefellog(Wold::StridedMatrix, Wnew::StridedMatrix;
     end
     Q = lmul!(QQ, Q)
     R = Q' * dW
-    Wext = [Wold Q]
-    F = qr!([P; R])
-    U = lmul!(F.Q, TensorKit.MatrixAlgebra.one!(similar(P, r, r)))
+    F = LinearAlgebra.qr!([P; R])
+    U = lmul!(F.Q, MatrixAlgebraKit.one!(similar(P, r, r)))
     U[1:p, 1:p] .= P
     U[(p + 1):r, 1:p] .= R
     X = view(U, 1:p, (p + 1):r)
     Y = view(U, (p + 1):r, (p + 1):r)
     if p < n
-        YSVD = svd!(Y)
-        mul!(X, X * (YSVD.V), (YSVD.U)')
-        UsqrtS = YSVD.U
-        @inbounds for j in 1:size(UsqrtS, 2)
-            s = sqrt(YSVD.S[j])
-            @simd for i in 1:size(UsqrtS, 1)
-                UsqrtS[i, j] *= s
-            end
-        end
+        USVᴴ = svd_compact!(Y)
+        mul!(X, X * USVᴴ[3]', USVᴴ[1]')
+        diagview(USVᴴ[2]) .= sqrt.(diagview(USVᴴ[2]))
+        UsqrtS = rmul!(USVᴴ[1], USVᴴ[2])
         mul!(Y, UsqrtS, UsqrtS')
     end
     logU = _projectantihermitian!(log(U))

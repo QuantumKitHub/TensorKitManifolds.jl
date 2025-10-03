@@ -7,6 +7,7 @@ using TensorKit
 import TensorKit: similarstoragetype, SectorDict
 using ..TensorKitManifolds: projectantihermitian!, projectisometric!, PolarNewton
 import ..TensorKitManifolds: base, checkbase, inner, retract, transport, transport!
+import MatrixAlgebraKit as MAK
 
 struct UnitaryTangent{T<:AbstractTensorMap,TA<:AbstractTensorMap}
     W::T
@@ -82,10 +83,10 @@ end
 project(X, W; metric=:euclidean) = project!(copy(X), W; metric=:euclidean)
 
 # geodesic retraction, coincides with Stiefel retraction (which is not geodesic for p < n)
-function retract(W::AbstractTensorMap, Δ::UnitaryTangent, α; alg=nothing)
+function retract(W::AbstractTensorMap, Δ::UnitaryTangent, α; alg=MAK.select_algorithm(left_polar!, W))
     W == base(Δ) || throw(ArgumentError("not a valid tangent vector at base point"))
     E = exp(α * Δ.A)
-    W′ = projectisometric!(W * E; alg=SDD())
+    W′ = projectisometric!(W * E; alg)
     A′ = Δ.A
     return W′, UnitaryTangent(W′, A′)
 end
@@ -104,7 +105,7 @@ function transport!(Θ::UnitaryTangent, W::AbstractTensorMap, Δ::UnitaryTangent
 end
 function transport(Θ::UnitaryTangent, W::AbstractTensorMap, Δ::UnitaryTangent, α::Real, W′;
                    alg=:stiefel)
-    return transport!(copy(Θ), W, Δ, α, W′; alg=alg)
+    return transport!(copy(Θ), W, Δ, α, W′; alg)
 end
 
 # transport_parallel correspondings to the torsion-free Levi-Civita connection
