@@ -31,8 +31,8 @@ end
 
 # output type of U, S, V in tsvd
 function _tsvd_types(Z::AbstractTensorMap)
-    TUSV = Core.Compiler.return_type(tsvd, Tuple{typeof(Z)})
-    TU, TS, TV, = TUSV.types
+    TUSV = Core.Compiler.return_type(svd_compact, Tuple{typeof(Z)})
+    TU, TS, TV = TUSV.types
     return TU, TS, TV
 end
 
@@ -59,7 +59,7 @@ function Base.getproperty(Δ::GrassmannTangent, sym::Symbol)
     elseif sym ∈ (:U, :S, :V)
         v = Base.getfield(Δ, sym)
         v !== nothing && return v
-        U, S, V, = svd_compact(Δ.Z)
+        U, S, V = svd_compact(Δ.Z)
         Base.setfield!(Δ, :U, U)
         Base.setfield!(Δ, :S, S)
         Base.setfield!(Δ, :V, V)
