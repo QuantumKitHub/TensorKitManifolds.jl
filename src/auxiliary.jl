@@ -73,7 +73,8 @@ end
 
 # TODO: _left_polar! is more or less the same as MAK.left_polar! but doesn't compute the P
 # which is not needed here. Can we unify this?
-function _left_polar!(A::StridedMatrix, alg::PolarViaSVD=PolarViaSVD(LAPACK_DivideAndConquer()))
+function _left_polar!(A::StridedMatrix,
+                      alg::PolarViaSVD=PolarViaSVD(LAPACK_DivideAndConquer()))
     U, _, Vᴴ = svd_compact!(A, alg.svdalg)
     return mul!(A, U, Vᴴ)
 end

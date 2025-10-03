@@ -83,7 +83,8 @@ end
 project(X, W; metric=:euclidean) = project!(copy(X), W; metric=:euclidean)
 
 # geodesic retraction, coincides with Stiefel retraction (which is not geodesic for p < n)
-function retract(W::AbstractTensorMap, Δ::UnitaryTangent, α; alg=MAK.select_algorithm(left_polar!, W))
+function retract(W::AbstractTensorMap, Δ::UnitaryTangent, α;
+                 alg=MAK.select_algorithm(left_polar!, W))
     W == base(Δ) || throw(ArgumentError("not a valid tangent vector at base point"))
     E = exp(α * Δ.A)
     W′ = projectisometric!(W * E; alg)

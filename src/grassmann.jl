@@ -7,8 +7,7 @@ module Grassmann
 using TensorKit
 using TensorKit: similarstoragetype, SectorDict
 using ..TensorKitManifolds: projecthermitian!, projectantihermitian!,
-                            projectisometric!, projectcomplement!, PolarNewton,
-                            default_svd_alg
+                            projectisometric!, projectcomplement!, PolarNewton
 import ..TensorKitManifolds: base, checkbase, inner, retract, transport, transport!
 
 # special type to store tangent vectors using Z
