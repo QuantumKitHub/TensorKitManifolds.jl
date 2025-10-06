@@ -8,7 +8,7 @@ const α = 0.75
 
 @testset "Grassmann with space $V" for V in spaces
     for T in (Float64,)
-        W, = leftorth(randn(T, V * V * V, V * V); alg=Polar())
+        W, = left_polar(randn(T, V * V * V, V * V))
         X = randn(T, space(W))
         Y = randn(T, space(W))
         Δ = @inferred Grassmann.project(X, W)
@@ -124,7 +124,7 @@ end
 
 @testset "Unitary with space $V" for V in spaces
     for T in (Float64, ComplexF64)
-        W, = leftorth(randn(T, V * V * V, V * V); alg=Polar())
+        W, = left_polar(randn(T, V * V * V, V * V))
         X = randn(T, space(W))
         Y = randn(T, space(W))
         Δ = @inferred Unitary.project(X, W)
