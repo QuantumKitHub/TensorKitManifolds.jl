@@ -1,6 +1,5 @@
 using LinearAlgebra
 
-
 function _addone!(a::AbstractMatrix)
     view(a, diagind(a)) .= view(a, diagind(a)) .+ 1
     return a
