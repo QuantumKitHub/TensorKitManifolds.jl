@@ -1,8 +1,7 @@
 module TensorKitManifolds
 
 export base, checkbase, isisometry, isunitary
-export projecthermitian, projecthermitian!, projectantihermitian, projectantihermitian!
-export projectcomplement, projectcomplement!, projectisometric, projectisometric!
+export projectcomplement, projectcomplement!
 export Grassmann, Stiefel, Unitary
 export inner, retract, transport, transport!
 
@@ -10,6 +9,8 @@ using TensorKit
 using MatrixAlgebraKit: MatrixAlgebraKit, AbstractAlgorithm, Algorithm, PolarViaSVD,
                         LAPACK_DivideAndConquer, diagview
 import MatrixAlgebraKit as MAK
+
+using Base: @deprecate
 
 # Every submodule -- Grassmann, Stiefel, and Unitary -- implements their own methods for
 # these. The signatures should be
@@ -31,35 +32,14 @@ checkbase(x, y, z, args...) = checkbase(checkbase(x, y), z, args...)
 # the machine epsilon for the elements of an object X, name inspired from eltype
 scalareps(X) = eps(real(scalartype(X)))
 
-# TODO: these functions should be replaced by MAK functions
-projecthermitian(W::AbstractTensorMap) = projecthermitian!(copy(W))
-function projecthermitian!(W::AbstractTensorMap)
-    codomain(W) == domain(W) ||
-        throw(DomainError("Tensor with distinct domain and codomain cannot be hermitian."))
-    for (c, b) in blocks(W)
-        _projecthermitian!(b)
-    end
-    return W
-end
+@deprecate projecthermitian(W) MAK.project_hermitian(W)
+@deprecate projecthermitian!(W) MAK.project_hermitian!(W)
 
-projectantihermitian(W::AbstractTensorMap) = projectantihermitian!(copy(W))
-function projectantihermitian!(W::AbstractTensorMap)
-    codomain(W) == domain(W) ||
-        throw(DomainError("Tensor with distinct domain and codomain cannot be anithermitian."))
-    for (c, b) in blocks(W)
-        _projectantihermitian!(b)
-    end
-    return W
-end
+@deprecate projectantihermitian(W) MAK.project_antihermitian(W)
+@deprecate projectantihermitian!(W) MAK.project_antihermitian!(W)
 
-projectisometric(W::AbstractTensorMap; kwargs...) = projectisometric!(copy(W); kwargs...)
-function projectisometric!(W::AbstractTensorMap;
-                           alg::AbstractAlgorithm=MAK.select_algorithm(left_polar!, W))
-    TensorKit.foreachblock(W) do c, (b,)
-        return _left_polar!(b, alg)
-    end
-    return W
-end
+@deprecate projectisometric(W; kwargs...) MAK.project_isometric(W; kwargs...)
+@deprecate projectisometric!(W; kwargs...) MAK.project_isometric!(W; kwargs...)
 
 function projectcomplement(X::AbstractTensorMap, W::AbstractTensorMap, kwargs...)
     return projectcomplement!(copy(X), W; kwargs...)

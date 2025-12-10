@@ -5,7 +5,6 @@ module Unitary
 
 using TensorKit
 import TensorKit: similarstoragetype, SectorDict
-using ..TensorKitManifolds: projectantihermitian!, projectisometric!, PolarNewton
 import ..TensorKitManifolds: base, checkbase, inner, retract, transport, transport!
 import MatrixAlgebraKit as MAK
 
@@ -77,7 +76,7 @@ end
 function project!(X::AbstractTensorMap, W::AbstractTensorMap; metric=:euclidean)
     @assert metric == :euclidean
     P = W' * X
-    A = projectantihermitian!(P)
+    A = project_antihermitian!(P)
     return UnitaryTangent(W, A)
 end
 project(X, W; metric=:euclidean) = project!(copy(X), W; metric=:euclidean)
@@ -87,7 +86,7 @@ function retract(W::AbstractTensorMap, Δ::UnitaryTangent, α;
                  alg=MAK.select_algorithm(left_polar!, W))
     W == base(Δ) || throw(ArgumentError("not a valid tangent vector at base point"))
     E = exp(α * Δ.A)
-    W′ = projectisometric!(W * E; alg)
+    W′ = project_isometric!(W * E; alg)
     A′ = Δ.A
     return W′, UnitaryTangent(W′, A′)
 end
@@ -116,7 +115,7 @@ function transport_parallel!(Θ::UnitaryTangent, W::AbstractTensorMap, Δ::Unita
                              W′)
     W == checkbase(Δ, Θ) || throw(ArgumentError("not a valid tangent vector at base point"))
     E = exp((α / 2) * Δ.A)
-    A′ = projectantihermitian!(E' * Θ.A * E) # exra projection for stability
+    A′ = project_antihermitian!(E' * Θ.A * E) # exra projection for stability
     return UnitaryTangent(W′, A′)
 end
 function transport_parallel(Θ::UnitaryTangent, W::AbstractTensorMap, Δ::UnitaryTangent, α,

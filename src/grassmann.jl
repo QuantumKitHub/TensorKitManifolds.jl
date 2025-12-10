@@ -6,8 +6,7 @@ module Grassmann
 
 using TensorKit
 using TensorKit: similarstoragetype, SectorDict
-using ..TensorKitManifolds: projecthermitian!, projectantihermitian!,
-                            projectisometric!, projectcomplement!, PolarNewton
+using ..TensorKitManifolds: projectcomplement!
 import ..TensorKitManifolds: base, checkbase, inner, retract, transport, transport!
 
 # special type to store tangent vectors using Z
@@ -177,7 +176,7 @@ function retract(W::AbstractTensorMap, Δ::GrassmannTangent, α; alg=nothing)
     U, S, V = Δ.U, Δ.S, Δ.V
     WVd = W * V'
     sSV, cSV = _sincosSV(α, S, V) # sin(S)*V, cos(S)*V
-    W′ = projectisometric!(WVd * cSV + U * sSV)
+    W′ = project_isometric!(WVd * cSV + U * sSV)
     sSSV = _lmul!(S, sSV) # sin(S)*S*V
     cSSV = _lmul!(S, cSV) # cos(S)*S*V
     Z′ = projectcomplement!(-WVd * sSSV + U * cSSV, W′)
@@ -202,7 +201,7 @@ function invretract(Wold::AbstractTensorMap, Wnew::AbstractTensorMap; alg=nothin
     # acos always returns a complex TensorMap. We cast back to real if possible.
     S = scalartype(WodWn) <: Real && isreal(sectortype(Scmplx)) ? real(Scmplx) : Scmplx
     UsS = Wneworth * VY' # U * sin(S) # should be in polar decomposition form
-    U = projectisometric!(UsS)
+    U = project_isometric!(UsS)
     Y = Vd * VY
     V = Vd'
     Z = Grassmann.GrassmannTangent(Wold, U * S * V)
@@ -218,7 +217,7 @@ retraction.
 """
 function relativegauge(W::AbstractTensorMap, V::AbstractTensorMap; alg=nothing)
     space(W) == space(V) || throw(SpaceMismatch())
-    return projectisometric!(V' * W)
+    return project_isometric!(V' * W)
 end
 
 function transport!(Θ::GrassmannTangent, W::AbstractTensorMap, Δ::GrassmannTangent, α, W′;
