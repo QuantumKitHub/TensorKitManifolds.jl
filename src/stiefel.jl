@@ -6,9 +6,7 @@ module Stiefel
 
 using TensorKit
 using TensorKit: similarstoragetype, SectorDict
-using ..TensorKitManifolds: projecthermitian!, projectantihermitian!,
-                            projectisometric!, projectcomplement!, PolarNewton,
-                            _stiefelexp, _stiefellog, scalareps
+using ..TensorKitManifolds: projectcomplement!, _stiefelexp, _stiefellog, scalareps
 import ..TensorKitManifolds: base, checkbase,
                              inner, retract, transport, transport!
 
@@ -139,7 +137,7 @@ end
 function project_euclidean!(X::AbstractTensorMap, W::AbstractTensorMap)
     P = W' * X
     Z = mul!(X, W, P, -1, 1)
-    A = projectantihermitian!(P)
+    A = project_antihermitian!(P)
     Z = projectcomplement!(Z, W)
     return StiefelTangent(W, A, Z)
 end
@@ -156,7 +154,7 @@ end
 function project_canonical!(X::AbstractTensorMap, W::AbstractTensorMap)
     P = W' * X
     Z = mul!(X, W, P, -1, 1)
-    A = rmul!(projectantihermitian!(P), 2)
+    A = rmul!(project_antihermitian!(P), 2)
     Z = projectcomplement!(Z, W)
     return StiefelTangent(W, A, Z)
 end
@@ -234,10 +232,10 @@ function retract_cayley(W::AbstractTensorMap, Δ::StiefelTangent, α::Real)
     ZdZ = Z' * Z
     X = axpy!(α^2 / 4, ZdZ, axpy!(-α / 2, A, one(A)))
     iX = inv(X)
-    W′ = projectisometric!((2 * W + α * Z) * iX - W; alg=PolarNewton())
-    A′ = projectantihermitian!((A - (α / 2) * ZdZ) * iX)
+    W′ = project_isometric!((2 * W + α * Z) * iX - W)
+    A′ = project_antihermitian!((A - (α / 2) * ZdZ) * iX)
     Z′ = (Z - α * (W + α / 2 * Z) * (iX * ZdZ))
-    Z′ = projectcomplement!(Z′ * projecthermitian!(iX), W′)
+    Z′ = projectcomplement!(Z′ * project_hermitian!(iX), W′)
     return W′, StiefelTangent(W′, A′, Z′)
 end
 function invretract_cayley(Wold::AbstractTensorMap, Wnew::AbstractTensorMap)
@@ -247,7 +245,7 @@ function invretract_cayley(Wold::AbstractTensorMap, Wnew::AbstractTensorMap)
     iX = rmul!(axpy!(1, P, one(P)), 1 / 2)
     X = inv(iX)
     Z = projectcomplement!(Wnew - Wold * P, Wold) * X
-    A = projectantihermitian!(rmul!(axpy!(-1, X, mul!(one(X), Z', Z, 1 / 4, 1)), 2))
+    A = project_antihermitian!(rmul!(axpy!(-1, X, mul!(one(X), Z', Z, 1 / 4, 1)), 2))
     return StiefelTangent(Wold, A, Z)
 end
 

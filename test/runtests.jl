@@ -116,7 +116,7 @@ end
         @test Stiefel.inner_canonical(W2, Δ2, Θ2) ≈ Stiefel.inner_canonical(W, Δ, Θ)
         @test Stiefel.inner_canonical(W2, Ξ2, Θ2) ≈ Stiefel.inner_canonical(W, Ξ, Θ)
 
-        W3 = projectisometric!(W + 1e-1 * rand(T, codomain(W), domain(W)))
+        W3 = project_isometric!(W + 1.0e-1 * rand(T, codomain(W), domain(W)))
         Δ3 = Stiefel.invretract(W, W3)
         @test W3 ≈ retract(W, Δ3, 1)[1]
     end
