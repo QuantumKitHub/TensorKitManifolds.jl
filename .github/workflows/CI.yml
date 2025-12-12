@@ -1,17 +1,22 @@
 name: CI
+
 on:
   push:
     branches:
-      - 'master'
       - 'main'
       - 'release-'
+
     tags: '*'
+
+    paths-ignore:
+      - 'docs/**'
   pull_request:
   workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Cancel intermediate builds: only if it is a pull request build.
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
 
 jobs:
   test:
