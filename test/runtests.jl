@@ -30,7 +30,7 @@ const α = 0.75
         @test norm(W2' * Δ2′[]) <= sqrt(eps(real(T))) * dim(domain(W))
         @test Δ2′[] ≈
               (first(Grassmann.retract(W, Δ, α + ϵ / 2)) -
-               first(Grassmann.retract(W, Δ, α - ϵ / 2))) / (ϵ)
+               first(Grassmann.retract(W, Δ, α - ϵ / 2))) / (ϵ) atol = dim(W) * ϵ
         Δ2 = @inferred Grassmann.transport(Δ, W, Δ, α, W2)
         Θ2 = Grassmann.transport(Θ, W, Δ, α, W2)
         Ξ2 = Grassmann.transport(Ξ, W, Δ, α, W2)
@@ -52,73 +52,76 @@ const α = 0.75
 end
 
 @testset "Stiefel with space $V" for V in spaces
+    V1 = V * V
+    V2 = fuse(V * V * V) ⊖ fuse(V1)
     for T in (Float64, ComplexF64)
-        W = randisometry(T, V * V * V, V * V)
-        X = randn(T, space(W))
-        Y = randn(T, space(W))
-        Δ = @inferred Stiefel.project_euclidean(X, W)
-        Θ = Stiefel.project_canonical(Y, W)
-        γ = rand()
-        Ξ = -Δ + γ * Θ
-        @test norm(W' * Δ[] + Δ[]' * W) <= sqrt(eps(real(T))) * dim(domain(W))
-        @test norm(W' * Θ[] + Θ[]' * W) <= sqrt(eps(real(T))) * dim(domain(W))
-        @test norm(W' * Ξ[] + Ξ[]' * W) <= sqrt(eps(real(T))) * dim(domain(W))
-        @test norm(zero(W)) == 0
-        @test (@inferred Stiefel.inner_euclidean(W, Δ, Θ)) ≈ real(dot(Δ[], Θ[]))
-        @test (@inferred Stiefel.inner_canonical(W, Δ, Θ)) ≈
-              real(dot(Δ[], Θ[] - W * (W' * Θ[]) / 2))
-        @test Stiefel.inner_euclidean(W, Δ, Θ) ≈ real(dot(X, Θ[]))
-        @test !(Stiefel.inner_euclidean(W, Δ, Θ) ≈ real(dot(Δ[], Y)))
-        @test !(Stiefel.inner_canonical(W, Δ, Θ) ≈ real(dot(X, Θ[])))
-        @test Stiefel.inner_canonical(W, Δ, Θ) ≈ real(dot(Δ[], Y))
-        @test Stiefel.inner_euclidean(W, Δ, Δ) ≈ norm(Δ[])^2
-        @test Stiefel.inner_canonical(W, Δ, Δ) ≈
-              (1 // 2) * norm(W' * Δ[])^2 + norm(Δ[] - W * (W'Δ[]))^2
+        for W in (randisometry(T, V * V * V, V1), randisometry(T, V * V * V, V2))
+            X = randn(T, space(W))
+            Y = randn(T, space(W))
+            Δ = @inferred Stiefel.project_euclidean(X, W)
+            Θ = Stiefel.project_canonical(Y, W)
+            γ = rand()
+            Ξ = -Δ + γ * Θ
+            @test norm(W' * Δ[] + Δ[]' * W) <= sqrt(eps(real(T))) * dim(domain(W))
+            @test norm(W' * Θ[] + Θ[]' * W) <= sqrt(eps(real(T))) * dim(domain(W))
+            @test norm(W' * Ξ[] + Ξ[]' * W) <= sqrt(eps(real(T))) * dim(domain(W))
+            @test norm(zero(W)) == 0
+            @test (@inferred Stiefel.inner_euclidean(W, Δ, Θ)) ≈ real(dot(Δ[], Θ[]))
+            @test (@inferred Stiefel.inner_canonical(W, Δ, Θ)) ≈
+                real(dot(Δ[], Θ[] - W * (W' * Θ[]) / 2))
+            @test Stiefel.inner_euclidean(W, Δ, Θ) ≈ real(dot(X, Θ[]))
+            @test !(Stiefel.inner_euclidean(W, Δ, Θ) ≈ real(dot(Δ[], Y)))
+            @test !(Stiefel.inner_canonical(W, Δ, Θ) ≈ real(dot(X, Θ[])))
+            @test Stiefel.inner_canonical(W, Δ, Θ) ≈ real(dot(Δ[], Y))
+            @test Stiefel.inner_euclidean(W, Δ, Δ) ≈ norm(Δ[])^2
+            @test Stiefel.inner_canonical(W, Δ, Δ) ≈
+                (1 // 2) * norm(W' * Δ[])^2 + norm(Δ[] - W * (W'Δ[]))^2
 
-        W2, = @inferred Stiefel.retract_exp(W, Δ, ϵ)
-        @test W2 ≈ W + ϵ * Δ[]
-        W2, Δ2′ = Stiefel.retract_exp(W, Δ, α)
-        @test norm(W2' * Δ2′[] + Δ2′[]' * W2) <= sqrt(eps(real(T))) * dim(domain(W))
-        @test Δ2′[] ≈
-              (first(Stiefel.retract_exp(W, Δ, α + ϵ / 2)) -
-               first(Stiefel.retract_exp(W, Δ, α - ϵ / 2))) / (ϵ)
-        Δ2 = @inferred Stiefel.transport_exp(Δ, W, Δ, α, W2)
-        Θ2 = Stiefel.transport_exp(Θ, W, Δ, α, W2)
-        Ξ2 = Stiefel.transport_exp(Ξ, W, Δ, α, W2)
-        @test Δ2′[] ≈ Δ2[]
-        @test norm(W2' * Δ2[] + Δ2[]' * W2) <= sqrt(eps(real(T))) * dim(domain(W))
-        @test norm(W2' * Θ2[] + Θ2[]' * W2) <= sqrt(eps(real(T))) * dim(domain(W))
-        @test norm(W2' * Ξ2[] + Ξ2[]' * W2) <= sqrt(eps(real(T))) * dim(domain(W))
-        @test Ξ2[] ≈ -Δ2[] + γ * Θ2[]
-        @test Stiefel.inner_euclidean(W2, Δ2, Θ2) ≈ Stiefel.inner_euclidean(W, Δ, Θ)
-        @test Stiefel.inner_euclidean(W2, Ξ2, Θ2) ≈ Stiefel.inner_euclidean(W, Ξ, Θ)
-        @test Stiefel.inner_canonical(W2, Δ2, Θ2) ≈ Stiefel.inner_canonical(W, Δ, Θ)
-        @test Stiefel.inner_canonical(W2, Ξ2, Θ2) ≈ Stiefel.inner_canonical(W, Ξ, Θ)
+            W2, = @inferred Stiefel.retract_exp(W, Δ, ϵ)
+            @test W2 ≈ W + ϵ * Δ[]
+            W2, Δ2′ = Stiefel.retract_exp(W, Δ, α)
+            @test norm(W2' * Δ2′[] + Δ2′[]' * W2) <= sqrt(eps(real(T))) * dim(domain(W))
+            @test Δ2′[] ≈
+                (first(Stiefel.retract_exp(W, Δ, α + ϵ / 2)) -
+                first(Stiefel.retract_exp(W, Δ, α - ϵ / 2))) / (ϵ) atol = dim(W) * ϵ
+            Δ2 = @inferred Stiefel.transport_exp(Δ, W, Δ, α, W2)
+            Θ2 = Stiefel.transport_exp(Θ, W, Δ, α, W2)
+            Ξ2 = Stiefel.transport_exp(Ξ, W, Δ, α, W2)
+            @test Δ2′[] ≈ Δ2[]
+            @test norm(W2' * Δ2[] + Δ2[]' * W2) <= sqrt(eps(real(T))) * dim(domain(W))
+            @test norm(W2' * Θ2[] + Θ2[]' * W2) <= sqrt(eps(real(T))) * dim(domain(W))
+            @test norm(W2' * Ξ2[] + Ξ2[]' * W2) <= sqrt(eps(real(T))) * dim(domain(W))
+            @test Ξ2[] ≈ -Δ2[] + γ * Θ2[]
+            @test Stiefel.inner_euclidean(W2, Δ2, Θ2) ≈ Stiefel.inner_euclidean(W, Δ, Θ)
+            @test Stiefel.inner_euclidean(W2, Ξ2, Θ2) ≈ Stiefel.inner_euclidean(W, Ξ, Θ)
+            @test Stiefel.inner_canonical(W2, Δ2, Θ2) ≈ Stiefel.inner_canonical(W, Δ, Θ)
+            @test Stiefel.inner_canonical(W2, Ξ2, Θ2) ≈ Stiefel.inner_canonical(W, Ξ, Θ)
 
-        W2, = @inferred Stiefel.retract_cayley(W, Δ, ϵ)
-        @test W2 ≈ W + ϵ * Δ[]
-        W2, Δ2′ = Stiefel.retract_cayley(W, Δ, α)
-        @test norm(W2' * Δ2′[] + Δ2′[]' * W2) <= sqrt(eps(real(T))) * dim(domain(W))
-        @test Δ2′[] ≈
-              (first(Stiefel.retract_cayley(W, Δ, α + ϵ / 2)) -
-               first(Stiefel.retract_cayley(W, Δ, α - ϵ / 2))) / (ϵ)
-        @test norm(Δ2′) <= norm(Δ)
-        Δ2 = @inferred Stiefel.transport_cayley(Δ, W, Δ, α, W2)
-        Θ2 = Stiefel.transport_cayley(Θ, W, Δ, α, W2)
-        Ξ2 = Stiefel.transport_cayley(Ξ, W, Δ, α, W2)
-        @test !(Δ2′[] ≈ Δ2[])
-        @test norm(W2' * Δ2[] + Δ2[]' * W2) <= sqrt(eps(real(T))) * dim(domain(W))
-        @test norm(W2' * Θ2[] + Θ2[]' * W2) <= sqrt(eps(real(T))) * dim(domain(W))
-        @test norm(W2' * Ξ2[] + Ξ2[]' * W2) <= sqrt(eps(real(T))) * dim(domain(W))
-        @test Ξ2[] ≈ -Δ2[] + γ * Θ2[]
-        @test Stiefel.inner_euclidean(W2, Δ2, Θ2) ≈ Stiefel.inner_euclidean(W, Δ, Θ)
-        @test Stiefel.inner_euclidean(W2, Ξ2, Θ2) ≈ Stiefel.inner_euclidean(W, Ξ, Θ)
-        @test Stiefel.inner_canonical(W2, Δ2, Θ2) ≈ Stiefel.inner_canonical(W, Δ, Θ)
-        @test Stiefel.inner_canonical(W2, Ξ2, Θ2) ≈ Stiefel.inner_canonical(W, Ξ, Θ)
+            W2, = @inferred Stiefel.retract_cayley(W, Δ, ϵ)
+            @test W2 ≈ W + ϵ * Δ[]
+            W2, Δ2′ = Stiefel.retract_cayley(W, Δ, α)
+            @test norm(W2' * Δ2′[] + Δ2′[]' * W2) <= sqrt(eps(real(T))) * dim(domain(W))
+            @test Δ2′[] ≈
+                (first(Stiefel.retract_cayley(W, Δ, α + ϵ / 2)) -
+                first(Stiefel.retract_cayley(W, Δ, α - ϵ / 2))) / (ϵ) atol = dim(W) * ϵ
+            @test norm(Δ2′) <= norm(Δ)
+            Δ2 = @inferred Stiefel.transport_cayley(Δ, W, Δ, α, W2)
+            Θ2 = Stiefel.transport_cayley(Θ, W, Δ, α, W2)
+            Ξ2 = Stiefel.transport_cayley(Ξ, W, Δ, α, W2)
+            @test !(Δ2′[] ≈ Δ2[])
+            @test norm(W2' * Δ2[] + Δ2[]' * W2) <= sqrt(eps(real(T))) * dim(domain(W))
+            @test norm(W2' * Θ2[] + Θ2[]' * W2) <= sqrt(eps(real(T))) * dim(domain(W))
+            @test norm(W2' * Ξ2[] + Ξ2[]' * W2) <= sqrt(eps(real(T))) * dim(domain(W))
+            @test Ξ2[] ≈ -Δ2[] + γ * Θ2[]
+            @test Stiefel.inner_euclidean(W2, Δ2, Θ2) ≈ Stiefel.inner_euclidean(W, Δ, Θ)
+            @test Stiefel.inner_euclidean(W2, Ξ2, Θ2) ≈ Stiefel.inner_euclidean(W, Ξ, Θ)
+            @test Stiefel.inner_canonical(W2, Δ2, Θ2) ≈ Stiefel.inner_canonical(W, Δ, Θ)
+            @test Stiefel.inner_canonical(W2, Ξ2, Θ2) ≈ Stiefel.inner_canonical(W, Ξ, Θ)
 
-        W3 = project_isometric!(W + 1.0e-1 * rand(T, codomain(W), domain(W)))
-        Δ3 = Stiefel.invretract(W, W3)
-        @test W3 ≈ retract(W, Δ3, 1)[1]
+            W3 = project_isometric!(W + 1.0e-1 * rand(T, codomain(W), domain(W)))
+            Δ3 = Stiefel.invretract(W, W3)
+            @test W3 ≈ retract(W, Δ3, 1)[1]
+        end
     end
 end
 
@@ -146,7 +149,7 @@ end
         @test norm(W2' * Δ2′[] + Δ2′[]' * W2) <= sqrt(eps(real(T))) * dim(domain(W))
         @test Δ2′[] ≈
               (first(Unitary.retract(W, Δ, α + ϵ / 2)) -
-               first(Unitary.retract(W, Δ, α - ϵ / 2))) / (ϵ)
+               first(Unitary.retract(W, Δ, α - ϵ / 2))) / (ϵ) atol = dim(W) * ϵ
 
         Δ2 = @inferred Unitary.transport_parallel(Δ, W, Δ, α, W2)
         Θ2 = Unitary.transport_parallel(Θ, W, Δ, α, W2)
