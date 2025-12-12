@@ -11,20 +11,24 @@ import ..TensorKitManifolds: base, checkbase, inner, retract, transport, transpo
 
 # special type to store tangent vectors using Z
 # add SVD of Z = U*S*V upon first creation
-mutable struct GrassmannTangent{T<:AbstractTensorMap,
-                                TU<:AbstractTensorMap,
-                                TS<:AbstractTensorMap,
-                                TV<:AbstractTensorMap}
+mutable struct GrassmannTangent{
+        T <: AbstractTensorMap,
+        TU <: AbstractTensorMap,
+        TS <: AbstractTensorMap,
+        TV <: AbstractTensorMap,
+    }
     W::T
     Z::T
-    U::Union{Nothing,TU}
-    S::Union{Nothing,TS}
-    V::Union{Nothing,TV}
-    function GrassmannTangent(W::AbstractTensorMap{TT₁,S,N₁,N₂},
-                              Z::AbstractTensorMap{TT₂,S,N₁,N₂}) where {TT₁,TT₂,S,N₁,N₂}
+    U::Union{Nothing, TU}
+    S::Union{Nothing, TS}
+    V::Union{Nothing, TV}
+    function GrassmannTangent(
+            W::AbstractTensorMap{TT₁, S, N₁, N₂},
+            Z::AbstractTensorMap{TT₂, S, N₁, N₂}
+        ) where {TT₁, TT₂, S, N₁, N₂}
         T = typeof(W)
         TU, TS, TV = _tsvd_types(Z)
-        return new{T,TU,TS,TV}(W, Z, nothing, nothing, nothing)
+        return new{T, TU, TS, TV}(W, Z, nothing, nothing, nothing)
     end
 end
 
@@ -49,7 +53,7 @@ Base.getindex(Δ::GrassmannTangent) = Δ.Z
 base(Δ::GrassmannTangent) = Δ.W
 function checkbase(Δ₁::GrassmannTangent, Δ₂::GrassmannTangent)
     return Δ₁.W == Δ₂.W ? Δ₁.W :
-           throw(ArgumentError("tangent vectors with different base points"))
+        throw(ArgumentError("tangent vectors with different base points"))
 end
 
 function Base.getproperty(Δ::GrassmannTangent, sym::Symbol)
@@ -130,10 +134,10 @@ function TensorKit.dot(Δ₁::GrassmannTangent, Δ₂::GrassmannTangent)
     checkbase(Δ₁, Δ₂)
     return dot(Δ₁.Z, Δ₂.Z)
 end
-TensorKit.norm(Δ::GrassmannTangent, p::Real=2) = norm(Δ.Z, p)
+TensorKit.norm(Δ::GrassmannTangent, p::Real = 2) = norm(Δ.Z, p)
 
 # tangent space methods
-function project!(X::AbstractTensorMap, W::AbstractTensorMap; metric=:euclidean)
+function project!(X::AbstractTensorMap, W::AbstractTensorMap; metric = :euclidean)
     @assert metric == :euclidean
     P = W' * X
     Z = mul!(X, W, P, -1, 1)
@@ -148,12 +152,14 @@ Project X onto the Grassmann tangent space at the base point `W`, which is assum
 isometric, i.e. `W'*W ≈ id(domain(W))`. The resulting tensor `Z` in the tangent space of
 `W` is given by `Z = X - W * (W'*X)` and satisfies `W'*Z = 0`.
 """
-function project(X::AbstractTensorMap, W::AbstractTensorMap; metric=:euclidean)
-    return project!(copy(X), W; metric=metric)
+function project(X::AbstractTensorMap, W::AbstractTensorMap; metric = :euclidean)
+    return project!(copy(X), W; metric = metric)
 end
 
-function inner(W::AbstractTensorMap, Δ₁::GrassmannTangent, Δ₂::GrassmannTangent;
-               metric=:euclidean)
+function inner(
+        W::AbstractTensorMap, Δ₁::GrassmannTangent, Δ₂::GrassmannTangent;
+        metric = :euclidean
+    )
     @assert metric == :euclidean
     return Δ₁ === Δ₂ ? norm(Δ₁)^2 : real(dot(Δ₁, Δ₂))
 end
@@ -171,7 +177,7 @@ while the local tangent vector along the retraction curve is
 
 `Z′ = - W * V' * sin(α*S) * S * V + U * cos(α * S) * S * V'`.
 """
-function retract(W::AbstractTensorMap, Δ::GrassmannTangent, α; alg=nothing)
+function retract(W::AbstractTensorMap, Δ::GrassmannTangent, α; alg = nothing)
     W == base(Δ) || throw(ArgumentError("not a valid tangent vector at base point"))
     U, S, V = Δ.U, Δ.S, Δ.V
     WVd = W * V'
@@ -192,7 +198,7 @@ This is done by solving the equation `Wold * V' * cos(S) * V + U * sin(S) * V = 
 for the isometries `U`, `V`, and `Y`, and the diagonal matrix `S`, and returning
 `Z = U * S * V` and `Y`.
 """
-function invretract(Wold::AbstractTensorMap, Wnew::AbstractTensorMap; alg=nothing)
+function invretract(Wold::AbstractTensorMap, Wnew::AbstractTensorMap; alg = nothing)
     space(Wold) == space(Wnew) || throw(SpaceMismatch())
     WodWn = Wold' * Wnew # V' * cos(S) * V * Y
     Wneworth = Wnew - Wold * WodWn
@@ -215,13 +221,15 @@ Return the unitary Y such that V*Y and W are "in the same Grassmann gauge" (tech
 from fibre bundles: in the same section), such that they can be related by a Grassmann
 retraction.
 """
-function relativegauge(W::AbstractTensorMap, V::AbstractTensorMap; alg=nothing)
+function relativegauge(W::AbstractTensorMap, V::AbstractTensorMap; alg = nothing)
     space(W) == space(V) || throw(SpaceMismatch())
     return project_isometric!(V' * W)
 end
 
-function transport!(Θ::GrassmannTangent, W::AbstractTensorMap, Δ::GrassmannTangent, α, W′;
-                    alg=nothing)
+function transport!(
+        Θ::GrassmannTangent, W::AbstractTensorMap, Δ::GrassmannTangent, α, W′;
+        alg = nothing
+    )
     W == checkbase(Δ, Θ) || throw(ArgumentError("not a valid tangent vector at base point"))
     U, S, V = Δ.U, Δ.S, Δ.V
     WVd = W * V'
@@ -232,9 +240,11 @@ function transport!(Θ::GrassmannTangent, W::AbstractTensorMap, Δ::GrassmannTan
     Z′ = projectcomplement!(Z′, W′)
     return GrassmannTangent(W′, Z′)
 end
-function transport(Θ::GrassmannTangent, W::AbstractTensorMap, Δ::GrassmannTangent, α, W′;
-                   alg=nothing)
-    return transport!(copy(Θ), W, Δ, α, W′; alg=alg)
+function transport(
+        Θ::GrassmannTangent, W::AbstractTensorMap, Δ::GrassmannTangent, α, W′;
+        alg = nothing
+    )
+    return transport!(copy(Θ), W, Δ, α, W′; alg = alg)
 end
 
 # auxiliary methods: unsafe, no checking

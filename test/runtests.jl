@@ -1,9 +1,11 @@
 using TensorKit, TensorKitManifolds
 using Test
 
-spaces = (ℂ^4, ℤ₂Space(2, 2), U₁Space(0 => 2, 1 => 1, -1 => 1),
-          SU₂Space(0 => 2, 1 / 2 => 1))
-const ϵ = 1e-7
+spaces = (
+    ℂ^4, ℤ₂Space(2, 2), U₁Space(0 => 2, 1 => 1, -1 => 1),
+    SU₂Space(0 => 2, 1 / 2 => 1),
+)
+const ϵ = 1.0e-7
 const α = 0.75
 
 @testset "Grassmann with space $V" for V in spaces
@@ -29,8 +31,10 @@ const α = 0.75
         W2, Δ2′ = Grassmann.retract(W, Δ, α)
         @test norm(W2' * Δ2′[]) <= sqrt(eps(real(T))) * dim(domain(W))
         @test Δ2′[] ≈
-              (first(Grassmann.retract(W, Δ, α + ϵ / 2)) -
-               first(Grassmann.retract(W, Δ, α - ϵ / 2))) / (ϵ) atol = dim(W) * ϵ
+            (
+            first(Grassmann.retract(W, Δ, α + ϵ / 2)) -
+                first(Grassmann.retract(W, Δ, α - ϵ / 2))
+        ) / (ϵ) atol = dim(W) * ϵ
         Δ2 = @inferred Grassmann.transport(Δ, W, Δ, α, W2)
         Θ2 = Grassmann.transport(Θ, W, Δ, α, W2)
         Ξ2 = Grassmann.transport(Ξ, W, Δ, α, W2)
@@ -82,8 +86,10 @@ end
             W2, Δ2′ = Stiefel.retract_exp(W, Δ, α)
             @test norm(W2' * Δ2′[] + Δ2′[]' * W2) <= sqrt(eps(real(T))) * dim(domain(W))
             @test Δ2′[] ≈
-                (first(Stiefel.retract_exp(W, Δ, α + ϵ / 2)) -
-                first(Stiefel.retract_exp(W, Δ, α - ϵ / 2))) / (ϵ) atol = dim(W) * ϵ
+                (
+                first(Stiefel.retract_exp(W, Δ, α + ϵ / 2)) -
+                    first(Stiefel.retract_exp(W, Δ, α - ϵ / 2))
+            ) / (ϵ) atol = dim(W) * ϵ
             Δ2 = @inferred Stiefel.transport_exp(Δ, W, Δ, α, W2)
             Θ2 = Stiefel.transport_exp(Θ, W, Δ, α, W2)
             Ξ2 = Stiefel.transport_exp(Ξ, W, Δ, α, W2)
@@ -102,8 +108,10 @@ end
             W2, Δ2′ = Stiefel.retract_cayley(W, Δ, α)
             @test norm(W2' * Δ2′[] + Δ2′[]' * W2) <= sqrt(eps(real(T))) * dim(domain(W))
             @test Δ2′[] ≈
-                (first(Stiefel.retract_cayley(W, Δ, α + ϵ / 2)) -
-                first(Stiefel.retract_cayley(W, Δ, α - ϵ / 2))) / (ϵ) atol = dim(W) * ϵ
+                (
+                first(Stiefel.retract_cayley(W, Δ, α + ϵ / 2)) -
+                    first(Stiefel.retract_cayley(W, Δ, α - ϵ / 2))
+            ) / (ϵ) atol = dim(W) * ϵ
             @test norm(Δ2′) <= norm(Δ)
             Δ2 = @inferred Stiefel.transport_cayley(Δ, W, Δ, α, W2)
             Θ2 = Stiefel.transport_cayley(Θ, W, Δ, α, W2)
@@ -148,8 +156,10 @@ end
         W2, Δ2′ = Unitary.retract(W, Δ, α)
         @test norm(W2' * Δ2′[] + Δ2′[]' * W2) <= sqrt(eps(real(T))) * dim(domain(W))
         @test Δ2′[] ≈
-              (first(Unitary.retract(W, Δ, α + ϵ / 2)) -
-               first(Unitary.retract(W, Δ, α - ϵ / 2))) / (ϵ) atol = dim(W) * ϵ
+            (
+            first(Unitary.retract(W, Δ, α + ϵ / 2)) -
+                first(Unitary.retract(W, Δ, α - ϵ / 2))
+        ) / (ϵ) atol = dim(W) * ϵ
 
         Δ2 = @inferred Unitary.transport_parallel(Δ, W, Δ, α, W2)
         Θ2 = Unitary.transport_parallel(Θ, W, Δ, α, W2)

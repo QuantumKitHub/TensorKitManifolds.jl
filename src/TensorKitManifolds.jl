@@ -7,7 +7,7 @@ export inner, retract, transport, transport!
 
 using TensorKit
 using MatrixAlgebraKit: MatrixAlgebraKit, AbstractAlgorithm, Algorithm, PolarViaSVD,
-                        LAPACK_DivideAndConquer, diagview
+    LAPACK_DivideAndConquer, diagview
 import MatrixAlgebraKit as MAK
 
 using Base: @deprecate
@@ -44,8 +44,10 @@ scalareps(X) = eps(real(scalartype(X)))
 function projectcomplement(X::AbstractTensorMap, W::AbstractTensorMap, kwargs...)
     return projectcomplement!(copy(X), W; kwargs...)
 end
-function projectcomplement!(X::AbstractTensorMap, W::AbstractTensorMap;
-                            tol=10 * scalareps(X))
+function projectcomplement!(
+        X::AbstractTensorMap, W::AbstractTensorMap;
+        tol = 10 * scalareps(X)
+    )
     P = W' * X
     nP = norm(P)
     nX = norm(X)

@@ -40,8 +40,10 @@ function _stiefelexp(W::StridedMatrix, A::StridedMatrix, Z::StridedMatrix, α)
     return W′, Q, Q′, R′
 end
 
-function _stiefellog(Wold::StridedMatrix, Wnew::StridedMatrix;
-                     tol=10 * scalareps(Wold), maxiter=100)
+function _stiefellog(
+        Wold::StridedMatrix, Wnew::StridedMatrix;
+        tol = 10 * scalareps(Wold), maxiter = 100
+    )
     n, p = size(Wold)
     r = min(2 * p, n)
     P = Wold' * Wnew
@@ -70,14 +72,14 @@ function _stiefellog(Wold::StridedMatrix, Wnew::StridedMatrix;
     end
     logU = project_antihermitian!(log(U))
     if eltype(U) <: Real
-        @assert mapreduce(abs ∘ imag, max, logU; init=abs(zero(eltype(logU)))) <= tol
+        @assert mapreduce(abs ∘ imag, max, logU; init = abs(zero(eltype(logU)))) <= tol
         K = real(logU)
     else
         K = logU
     end
     C = view(K, (p + 1):r, (p + 1):r)
     i = 1
-    τ = mapreduce(abs, max, C; init=abs(zero(eltype(C))))
+    τ = mapreduce(abs, max, C; init = abs(zero(eltype(C))))
     while τ > tol
         if i > maxiter
             @warn "Stiefel logarithm: not converged in $maxiter iterations, τ = $τ"
@@ -88,7 +90,7 @@ function _stiefellog(Wold::StridedMatrix, Wnew::StridedMatrix;
         Y .= Y * eC
         logU = project_antihermitian!(log(U))
         if eltype(U) <: Real
-            @assert mapreduce(abs ∘ imag, max, logU; init=abs(zero(eltype(logU)))) <= tol
+            @assert mapreduce(abs ∘ imag, max, logU; init = abs(zero(eltype(logU)))) <= tol
             K .= real.(logU)
         else
             K .= logU

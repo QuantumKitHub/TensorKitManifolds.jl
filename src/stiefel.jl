@@ -8,10 +8,10 @@ using TensorKit
 using TensorKit: similarstoragetype, SectorDict
 using ..TensorKitManifolds: projectcomplement!, _stiefelexp, _stiefellog, scalareps
 import ..TensorKitManifolds: base, checkbase,
-                             inner, retract, transport, transport!
+    inner, retract, transport, transport!
 
 # special type to store tangent vectors using A and Z = Q*R,
-struct StiefelTangent{T<:AbstractTensorMap,TA<:AbstractTensorMap}
+struct StiefelTangent{T <: AbstractTensorMap, TA <: AbstractTensorMap}
     W::T
     A::TA
     Z::T
@@ -25,7 +25,7 @@ Base.getindex(Δ::StiefelTangent) = Δ.W * Δ.A + Δ.Z
 base(Δ::StiefelTangent) = Δ.W
 function checkbase(Δ₁::StiefelTangent, Δ₂::StiefelTangent)
     return Δ₁.W == Δ₂.W ? Δ₁.W :
-           throw(ArgumentError("tangent vectors with different base points"))
+        throw(ArgumentError("tangent vectors with different base points"))
 end
 
 # Basic vector space behaviour
@@ -71,11 +71,13 @@ function TensorKit.dot(Δ₁::StiefelTangent, Δ₂::StiefelTangent)
     checkbase(Δ₁, Δ₂)
     return dot(Δ₁.A, Δ₂.A) + dot(Δ₁.Z, Δ₂.Z)
 end
-TensorKit.norm(Δ::StiefelTangent, p::Real=2) = norm((norm(Δ.A, p), norm(Δ.Z, p)), p)
+TensorKit.norm(Δ::StiefelTangent, p::Real = 2) = norm((norm(Δ.A, p), norm(Δ.Z, p)), p)
 
 # tangent space methods
-function inner(W::AbstractTensorMap, Δ₁::StiefelTangent, Δ₂::StiefelTangent;
-               metric=:euclidean)
+function inner(
+        W::AbstractTensorMap, Δ₁::StiefelTangent, Δ₂::StiefelTangent;
+        metric = :euclidean
+    )
     if metric == :euclidean
         return inner_euclidean(W, Δ₁, Δ₂)
     elseif metric == :canonical
@@ -84,7 +86,7 @@ function inner(W::AbstractTensorMap, Δ₁::StiefelTangent, Δ₂::StiefelTangen
         throw(ArgumentError("unknown metric: $metric"))
     end
 end
-function project!(X::AbstractTensorMap, W::AbstractTensorMap; metric=:euclidean)
+function project!(X::AbstractTensorMap, W::AbstractTensorMap; metric = :euclidean)
     if metric == :euclidean
         return project_euclidean!(X, W)
     elseif metric == :canonical
@@ -93,11 +95,11 @@ function project!(X::AbstractTensorMap, W::AbstractTensorMap; metric=:euclidean)
         throw(ArgumentError("unknown metric: `metric = $metric`"))
     end
 end
-function project(X::AbstractTensorMap, W::AbstractTensorMap; metric=:euclidean)
-    return project!(copy(X), W; metric=metric)
+function project(X::AbstractTensorMap, W::AbstractTensorMap; metric = :euclidean)
+    return project!(copy(X), W; metric = metric)
 end
 
-function retract(W::AbstractTensorMap, Δ::StiefelTangent, α::Real; alg=:exp)
+function retract(W::AbstractTensorMap, Δ::StiefelTangent, α::Real; alg = :exp)
     if alg == :exp
         return retract_exp(W, Δ, α)
     elseif alg == :cayley
@@ -106,7 +108,7 @@ function retract(W::AbstractTensorMap, Δ::StiefelTangent, α::Real; alg=:exp)
         throw(ArgumentError("unknown algorithm: `alg = $alg`"))
     end
 end
-function invretract(Wold::AbstractTensorMap, Wnew::AbstractTensorMap; alg=:exp)
+function invretract(Wold::AbstractTensorMap, Wnew::AbstractTensorMap; alg = :exp)
     if alg == :exp
         return invretract_exp(Wold, Wnew)
     elseif alg == :cayley
@@ -115,8 +117,10 @@ function invretract(Wold::AbstractTensorMap, Wnew::AbstractTensorMap; alg=:exp)
         throw(ArgumentError("unknown algorithm: `alg = $alg`"))
     end
 end
-function transport!(Θ::StiefelTangent, W::AbstractTensorMap, Δ::StiefelTangent, α::Real, W′;
-                    alg=:exp)
+function transport!(
+        Θ::StiefelTangent, W::AbstractTensorMap, Δ::StiefelTangent, α::Real, W′;
+        alg = :exp
+    )
     if alg == :exp
         return transport_exp!(Θ, W, Δ, α, W′)
     elseif alg == :cayley
@@ -125,9 +129,11 @@ function transport!(Θ::StiefelTangent, W::AbstractTensorMap, Δ::StiefelTangent
         throw(ArgumentError("unknown algorithm: `alg = $alg`"))
     end
 end
-function transport(Θ::StiefelTangent, W::AbstractTensorMap, Δ::StiefelTangent, α::Real, W′;
-                   alg=:exp)
-    return transport!(copy(Θ), W, Δ, α, W′; alg=alg)
+function transport(
+        Θ::StiefelTangent, W::AbstractTensorMap, Δ::StiefelTangent, α::Real, W′;
+        alg = :exp
+    )
+    return transport!(copy(Θ), W, Δ, α, W′; alg = alg)
 end
 
 # euclidean metric
@@ -161,10 +167,12 @@ end
 project_canonical(X, W) = project_canonical!(copy(X), W)
 
 # geodesic retraction for canonical metric using exponential
-function stiefelexp(W::AbstractTensorMap,
-                    A::AbstractTensorMap,
-                    Z::AbstractTensorMap,
-                    α::Real)
+function stiefelexp(
+        W::AbstractTensorMap,
+        A::AbstractTensorMap,
+        Z::AbstractTensorMap,
+        α::Real
+    )
     V = fuse(domain(W))
     V′ = infimum(V, fuse(codomain(W)) ⊖ V)
     W′ = similar(W)
@@ -189,8 +197,10 @@ function retract_exp(W::AbstractTensorMap, Δ::StiefelTangent, α::Real)
     Z′ = projectcomplement!(Q′ * R′, W′) # to ensure orthogonality
     return W′, StiefelTangent(W′, A′, Z′)
 end
-function invretract_exp(Wold::AbstractTensorMap, Wnew::AbstractTensorMap;
-                        tol=scalareps(Wold)^(2 / 3))
+function invretract_exp(
+        Wold::AbstractTensorMap, Wnew::AbstractTensorMap;
+        tol = scalareps(Wold)^(2 / 3)
+    )
     space(Wold) == space(Wnew) || throw(SectorMismatch())
     A = similar(Wold, domain(Wold) ← domain(Wold))
     Z = similar(Wold, space(Wold))
@@ -206,8 +216,10 @@ end
 # isometric for both euclidean and canonical metric
 # not parallel transport for either metric as the corresponding connection has torsion
 # can be computed efficiently: O(np^2) + O(p^3)
-function transport_exp!(Θ::StiefelTangent, W::AbstractTensorMap,
-                        Δ::StiefelTangent, α::Real, W′::AbstractTensorMap)
+function transport_exp!(
+        Θ::StiefelTangent, W::AbstractTensorMap,
+        Δ::StiefelTangent, α::Real, W′::AbstractTensorMap
+    )
     W == checkbase(Δ, Θ) || throw(ArgumentError("not a valid tangent vector at base point"))
     # TODO: stiefelexp call does not depend on Θ
     # cache result or find some other way not to recompute this information
@@ -220,8 +232,10 @@ function transport_exp!(Θ::StiefelTangent, W::AbstractTensorMap,
     Z′ = projectcomplement!(mul!(Z, (Q′ - Q), QZ, 1, 1), W′)
     return StiefelTangent(W′, A′, Z′)
 end
-function transport_exp(Θ::StiefelTangent, W::AbstractTensorMap, Δ::StiefelTangent, α::Real,
-                       W′)
+function transport_exp(
+        Θ::StiefelTangent, W::AbstractTensorMap, Δ::StiefelTangent, α::Real,
+        W′
+    )
     return transport_exp!(copy(Θ), W, Δ, α, W′)
 end
 
@@ -253,8 +267,10 @@ end
 # vector transport compatible with above `retract_caley`, but not differentiated retraction
 # isometric for both euclidean and canonical metric
 # can be computed efficiently: O(np^2) + O(p^3)
-function transport_cayley!(Θ::StiefelTangent, W::AbstractTensorMap, Δ::StiefelTangent,
-                           α::Real, W′)
+function transport_cayley!(
+        Θ::StiefelTangent, W::AbstractTensorMap, Δ::StiefelTangent,
+        α::Real, W′
+    )
     W == checkbase(Δ, Θ) || throw(ArgumentError("not a valid tangent vector at base point"))
     A, Z = Δ.A, Δ.Z
     X = axpy!(α^2 / 4, Z' * Z, axpy!(-α / 2, A, one(A)))
@@ -263,8 +279,10 @@ function transport_cayley!(Θ::StiefelTangent, W::AbstractTensorMap, Δ::Stiefel
     Z′ = projectcomplement!(axpy!(-α, (W + (α / 2) * Z) * (X \ ZdZ), Θ.Z), W′)
     return StiefelTangent(W′, A′, Z′)
 end
-function transport_cayley(Θ::StiefelTangent, W::AbstractTensorMap, Δ::StiefelTangent,
-                          α::Real, W′)
+function transport_cayley(
+        Θ::StiefelTangent, W::AbstractTensorMap, Δ::StiefelTangent,
+        α::Real, W′
+    )
     return transport_cayley!(copy(Θ), W, Δ, α, W′)
 end
 
