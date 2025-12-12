@@ -169,7 +169,7 @@ function stiefelexp(W::AbstractTensorMap,
     V′ = infimum(V, fuse(codomain(W)) ⊖ V)
     W′ = similar(W)
     Q = similar(W, codomain(W) ← V′)
-    Q′ = similar(Q, codomain(W) ← V′)
+    Q′ = similar(Q)
     R′ = similar(W, V′ ← domain(W))
     for (c, b) in blocks(W)
         w′, q, q′, r′ = _stiefelexp(b, block(A, c), block(Z, c), α)
