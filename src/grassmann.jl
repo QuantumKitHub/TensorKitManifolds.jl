@@ -8,6 +8,7 @@ using TensorKit
 using TensorKit: similarstoragetype, SectorDict
 using ..TensorKitManifolds: projectcomplement!
 import ..TensorKitManifolds: base, checkbase, inner, retract, transport, transport!
+import VectorInterface as VI
 
 # special type to store tangent vectors using Z
 # add SVD of Z = U*S*V upon first creation
@@ -93,48 +94,112 @@ Base.:\(α::Number, Δ::GrassmannTangent) = lmul!(inv(α), copy(Δ))
 
 Base.zero(Δ::GrassmannTangent) = GrassmannTangent(Δ.W, zero(Δ.Z))
 
-function TensorKit.rmul!(Δ::GrassmannTangent, α::Number)
-    rmul!(Δ.Z, α)
-    if Base.getfield(Δ, :S) !== nothing
-        if sign(α) != 1
-            rmul!(Δ.V, sign(α))
-        end
-        rmul!(Δ.S, abs(α))
-    end
-    return Δ
-end
-function TensorKit.lmul!(α::Number, Δ::GrassmannTangent)
-    lmul!(α, Δ.Z)
-    if Base.getfield(Δ, :S) !== nothing
-        if sign(α) != 1
-            lmul!(sign(α), Δ.U)
-        end
-        lmul!(abs(α), Δ.S)
-    end
-    return Δ
-end
-function TensorKit.axpy!(α::Number, Δx::GrassmannTangent, Δy::GrassmannTangent)
-    checkbase(Δx, Δy)
-    axpy!(α, Δx.Z, Δy.Z)
-    Base.setfield!(Δy, :U, nothing)
-    Base.setfield!(Δy, :S, nothing)
-    Base.setfield!(Δy, :V, nothing)
-    return Δy
-end
-function TensorKit.axpby!(α::Number, Δx::GrassmannTangent, β::Number, Δy::GrassmannTangent)
-    checkbase(Δx, Δy)
-    axpby!(α, Δx.Z, β, Δy.Z)
-    Base.setfield!(Δy, :U, nothing)
-    Base.setfield!(Δy, :S, nothing)
-    Base.setfield!(Δy, :V, nothing)
-    return Δy
+function Base.isapprox(Δ₁::GrassmannTangent, Δ₂::GrassmannTangent; kwargs...)
+    checkbase(Δ₁, Δ₂)
+    return isapprox(Δ₁.Z, Δ₂.Z; kwargs...)
 end
 
-function TensorKit.dot(Δ₁::GrassmannTangent, Δ₂::GrassmannTangent)
+# VectorInterface methods
+VI.scalartype(Δ::GrassmannTangent) = VI.scalartype(Δ.Z)
+
+function VI.zerovector(Δ::GrassmannTangent, T::Type{<:Number} = VI.scalartype(Δ))
+    return GrassmannTangent(base(Δ), VI.zerovector(Δ.Z, T))
+end
+function VI.zerovector!(Δ::GrassmannTangent)
+    VI.zerovector!(Δ.Z)
+    Base.setfield!(Δ, :U, nothing)
+    Base.setfield!(Δ, :S, nothing)
+    Base.setfield!(Δ, :V, nothing)
+    return Δ
+end
+VI.zerovector!!(Δ::GrassmannTangent) = VI.zerovector!(Δ)
+
+function VI.scale(Δ::GrassmannTangent, α::Number)
+    Δ′ = GrassmannTangent(base(Δ), VI.scale(Δ.Z, α))
+    return Δ′
+end
+function VI.scale!(Δ::GrassmannTangent, α::Number)
+    VI.scale!(Δ.Z, α)
+    if !isnothing(Base.getfield(Δ, :S))
+        sα, aα = sign(α), abs(α)
+        isone(sα) || VI.scale!(Δ.V, sα)
+        isone(aα) || VI.scale!(Δ.S, aα)
+    end
+    return Δ
+end
+function VI.scale!!(Δ::GrassmannTangent, α::Number)
+    Z′ = VI.scale!!(Δ.Z, α)
+    if Z′ === Δ.Z
+        if !isnothing(Base.getfield(Δ, :S))
+            sα, aα = sign(α), abs(α)
+            isone(sα) || VI.scale!(Δ.V, sα)
+            isone(aα) || VI.scale!(Δ.S, aα)
+        end
+        return Δ
+    else
+        return GrassmannTangent(base(Δ), Z′)
+    end
+end
+
+# 3 argument scale!, don't bother in trying to recycle svd fields
+function VI.scale!(Δy::GrassmannTangent, Δx::GrassmannTangent, α::Number)
+    checkbase(Δx, Δy)
+    VI.scale!(Δy.Z, Δx.Z, α)
+    Base.setfield!(Δy, :U, nothing)
+    Base.setfield!(Δy, :S, nothing)
+    Base.setfield!(Δy, :V, nothing)
+    return Δy
+end
+function VI.scale!!(Δy::GrassmannTangent, Δx::GrassmannTangent, α::Number)
+    checkbase(Δx, Δy)
+    Z′ = VI.scale!!(Δy.Z, Δx.Z, α)
+    if Z′ === Δy.Z
+        Base.setfield!(Δy, :U, nothing)
+        Base.setfield!(Δy, :S, nothing)
+        Base.setfield!(Δy, :V, nothing)
+        return Δy
+    else
+        return GrassmannTangent(base(Δy), Z′)
+    end
+end
+
+function VI.add(Δy::GrassmannTangent, Δx::GrassmannTangent, α::Number, β::Number)
+    Z′ = VI.add(Δy.Z, Δx.Z, α, β)
+    return GrassmannTangent(checkbase(Δy, Δx), Z′)
+end
+function VI.add!(Δy::GrassmannTangent, Δx::GrassmannTangent, α::Number, β::Number)
+    checkbase(Δx, Δy)
+    VI.add!(Δy.Z, Δx.Z, α, β)
+    Base.setfield!(Δy, :U, nothing)
+    Base.setfield!(Δy, :S, nothing)
+    Base.setfield!(Δy, :V, nothing)
+    return Δy
+end
+function VI.add!!(Δy::GrassmannTangent, Δx::GrassmannTangent, α::Number, β::Number)
+    checkbase(Δx, Δy)
+    Z′ = VI.add!!(Δy.Z, Δx.Z, α, β)
+    if Z′ === Δy.Z
+        Base.setfield!(Δy, :U, nothing)
+        Base.setfield!(Δy, :S, nothing)
+        Base.setfield!(Δy, :V, nothing)
+        return Δy
+    else
+        return GrassmannTangent(base(Δy), Z′)
+    end
+end
+
+function VI.inner(Δ₁::GrassmannTangent, Δ₂::GrassmannTangent)
     checkbase(Δ₁, Δ₂)
     return dot(Δ₁.Z, Δ₂.Z)
 end
-TensorKit.norm(Δ::GrassmannTangent, p::Real = 2) = norm(Δ.Z, p)
+VI.norm(Δ::GrassmannTangent, p::Real = 2) = norm(Δ.Z, p)
+
+# For backward compatibility: LinearAlgebra methods
+TensorKit.rmul!(Δ::GrassmannTangent, α::Number) = VI.scale!(Δ, α)
+TensorKit.lmul!(α::Number, Δ::GrassmannTangent) = VI.scale!(Δ, α)
+TensorKit.axpy!(α::Number, Δx::GrassmannTangent, Δy::GrassmannTangent) = VI.add!(Δy, Δx, α)
+TensorKit.axpby!(α::Number, Δx::GrassmannTangent, β::Number, Δy::GrassmannTangent) = VI.add!(Δy, Δx, α, β)
+TensorKit.dot(Δ₁::GrassmannTangent, Δ₂::GrassmannTangent) = VI.inner(Δ₁, Δ₂)
 
 # tangent space methods
 function project!(X::AbstractTensorMap, W::AbstractTensorMap; metric = :euclidean)

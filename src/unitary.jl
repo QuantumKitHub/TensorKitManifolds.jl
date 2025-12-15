@@ -7,6 +7,7 @@ using TensorKit
 import TensorKit: similarstoragetype, SectorDict
 import ..TensorKitManifolds: base, checkbase, inner, retract, transport, transport!
 import MatrixAlgebraKit as MAK
+import VectorInterface as VI
 
 struct UnitaryTangent{T <: AbstractTensorMap, TA <: AbstractTensorMap}
     W::T
@@ -37,37 +38,78 @@ function Base.:-(Δ₁::UnitaryTangent, Δ₂::UnitaryTangent)
 end
 Base.:-(Δ::UnitaryTangent) = (-1) * Δ
 
-Base.:*(Δ::UnitaryTangent, α::Real) = rmul!(copy(Δ), α)
-Base.:*(α::Real, Δ::UnitaryTangent) = lmul!(α, copy(Δ))
-Base.:/(Δ::UnitaryTangent, α::Real) = rmul!(copy(Δ), inv(α))
-Base.:\(α::Real, Δ::UnitaryTangent) = lmul!(inv(α), copy(Δ))
+Base.:*(Δ::UnitaryTangent, α::Real) = UnitaryTangent(base(Δ), Δ.A * α)
+Base.:*(α::Real, Δ::UnitaryTangent) = UnitaryTangent(base(Δ), α * Δ.A)
+Base.:/(Δ::UnitaryTangent, α::Real) = UnitaryTangent(base(Δ), Δ.A / α)
+Base.:\(α::Real, Δ::UnitaryTangent) = UnitaryTangent(base(Δ), α \ Δ.A)
 
 Base.zero(Δ::UnitaryTangent) = UnitaryTangent(Δ.W, zero(Δ.A))
 
-function TensorKit.rmul!(Δ::UnitaryTangent, α::Real)
-    rmul!(Δ.A, α)
-    return Δ
-end
-function TensorKit.lmul!(α::Real, Δ::UnitaryTangent)
-    lmul!(α, Δ.A)
-    return Δ
-end
-function TensorKit.axpy!(α::Real, Δx::UnitaryTangent, Δy::UnitaryTangent)
-    checkbase(Δx, Δy)
-    axpy!(α, Δx.A, Δy.A)
-    return Δy
-end
-function TensorKit.axpby!(α::Real, Δx::UnitaryTangent, β::Real, Δy::UnitaryTangent)
-    checkbase(Δx, Δy)
-    axpby!(α, Δx.A, β, Δy.A)
-    return Δy
+function Base.isapprox(Δ₁::UnitaryTangent, Δ₂::UnitaryTangent; kwargs...)
+    checkbase(Δ₁, Δ₂)
+    return isapprox(Δ₁.A, Δ₂.A; kwargs...)
 end
 
-function TensorKit.dot(Δ₁::UnitaryTangent, Δ₂::UnitaryTangent)
-    checkbase(Δ₁, Δ₂)
-    return dot(Δ₁.A, Δ₂.A)
+# VectorInterface methods
+VI.scalartype(Δ::UnitaryTangent) = VI.scalartype(Δ.A)
+
+function VI.zerovector(Δ::UnitaryTangent, T::Type{<:Number} = VI.scalartype(Δ))
+    return UnitaryTangent(base(Δ), VI.zerovector(Δ.A, T))
 end
-TensorKit.norm(Δ::UnitaryTangent, p::Real = 2) = norm(Δ.A, p)
+function VI.zerovector!(Δ::UnitaryTangent)
+    VI.zerovector!(Δ.A)
+    return Δ
+end
+VI.zerovector!!(Δ::UnitaryTangent) = VI.zerovector!(Δ)
+
+function VI.scale(Δ::UnitaryTangent, α::Real)
+    return UnitaryTangent(base(Δ), VI.scale(Δ.A, α))
+end
+function VI.scale!(Δ::UnitaryTangent, α::Real)
+    VI.scale!(Δ.A, α)
+    return Δ
+end
+function VI.scale!!(Δ::UnitaryTangent, α::Real)
+    A′ = VI.scale!!(Δ.A, α)
+    return A′ === Δ.A ? Δ : UnitaryTangent(base(Δ), A′)
+end
+
+function VI.scale!(Δy::UnitaryTangent, Δx::UnitaryTangent, α::Real)
+    VI.scale!(Δy.A, Δx.A, α)
+    return Δy
+end
+function VI.scale!!(Δy::UnitaryTangent, Δx::UnitaryTangent, α::Real)
+    A′ = VI.scale!!(Δy.A, Δx.A, α)
+    return A′ === Δy.A ? Δy : UnitaryTangent(base(Δy), A′)
+end
+
+function VI.add(Δy::UnitaryTangent, Δx::UnitaryTangent, α::Real, β::Real)
+    return UnitaryTangent(checkbase(Δy, Δx), VI.add(Δy.A, Δx.A, α, β))
+end
+function VI.add!(Δy::UnitaryTangent, Δx::UnitaryTangent, α::Real, β::Real)
+    checkbase(Δy, Δx)
+    VI.add!(Δy.A, Δx.A, α, β)
+    return Δy
+end
+function VI.add!!(Δy::UnitaryTangent, Δx::UnitaryTangent, α::Real, β::Real)
+    checkbase(Δy, Δx)
+    A′ = VI.add!!(Δy.A, Δx.A, α, β)
+    return A′ === Δy.A ? Δy : UnitaryTangent(base(Δy), A′)
+end
+
+function VI.inner(Δ₁::UnitaryTangent, Δ₂::UnitaryTangent)
+    checkbase(Δ₁, Δ₂)
+    return VI.inner(Δ₁.A, Δ₂.A)
+end
+
+VI.norm(Δ::UnitaryTangent, p::Real = 2) = norm(Δ.A, p)
+
+# For backward compatibility: LinearAlgebra methods
+TensorKit.rmul!(Δ::UnitaryTangent, α::Real) = VI.scale!(Δ, α)
+TensorKit.lmul!(α::Real, Δ::UnitaryTangent) = VI.scale!(Δ, α)
+TensorKit.axpy!(α::Real, Δx::UnitaryTangent, Δy::UnitaryTangent) = VI.add!(Δy, Δx, α)
+TensorKit.axpby!(α::Real, Δx::UnitaryTangent, β::Real, Δy::UnitaryTangent) = VI.add!(Δy, Δx, α, β)
+TensorKit.dot(Δ₁::UnitaryTangent, Δ₂::UnitaryTangent) = VI.inner(Δ₁, Δ₂)
 
 # tangent space methods
 function inner(
@@ -86,10 +128,7 @@ end
 project(X, W; metric = :euclidean) = project!(copy(X), W; metric = :euclidean)
 
 # geodesic retraction, coincides with Stiefel retraction (which is not geodesic for p < n)
-function retract(
-        W::AbstractTensorMap, Δ::UnitaryTangent, α;
-        alg = MAK.select_algorithm(left_polar!, W)
-    )
+function retract(W::AbstractTensorMap, Δ::UnitaryTangent, α; alg = MAK.select_algorithm(left_polar!, W))
     W == base(Δ) || throw(ArgumentError("not a valid tangent vector at base point"))
     E = exp(α * Δ.A)
     W′ = project_isometric!(W * E; alg)
@@ -99,10 +138,7 @@ end
 
 # isometric vector transports compatible with above retraction
 # (also with differential of retraction)
-function transport!(
-        Θ::UnitaryTangent, W::AbstractTensorMap, Δ::UnitaryTangent, α::Real, W′;
-        alg = :stiefel
-    )
+function transport!(Θ::UnitaryTangent, W::AbstractTensorMap, Δ::UnitaryTangent, α::Real, W′; alg = :stiefel)
     if alg == :parallel
         return transport_parallel!(Θ, W, Δ, α, W′)
     elseif alg == :stiefel
@@ -111,44 +147,29 @@ function transport!(
         throw(ArgumentError("unknown algorithm: `alg = $metric`"))
     end
 end
-function transport(
-        Θ::UnitaryTangent, W::AbstractTensorMap, Δ::UnitaryTangent, α::Real, W′;
-        alg = :stiefel
-    )
+function transport(Θ::UnitaryTangent, W::AbstractTensorMap, Δ::UnitaryTangent, α::Real, W′; alg = :stiefel)
     return transport!(copy(Θ), W, Δ, α, W′; alg)
 end
 
 # transport_parallel correspondings to the torsion-free Levi-Civita connection
 # transport_stiefel is compatible to Stiefel.transport and corresponds to a non-torsion-free
 # connection
-function transport_parallel!(
-        Θ::UnitaryTangent, W::AbstractTensorMap, Δ::UnitaryTangent, α,
-        W′
-    )
+function transport_parallel!(Θ::UnitaryTangent, W::AbstractTensorMap, Δ::UnitaryTangent, α, W′)
     W == checkbase(Δ, Θ) || throw(ArgumentError("not a valid tangent vector at base point"))
     E = exp((α / 2) * Δ.A)
     A′ = project_antihermitian!(E' * Θ.A * E) # exra projection for stability
     return UnitaryTangent(W′, A′)
 end
-function transport_parallel(
-        Θ::UnitaryTangent, W::AbstractTensorMap, Δ::UnitaryTangent, α,
-        W′
-    )
+function transport_parallel(Θ::UnitaryTangent, W::AbstractTensorMap, Δ::UnitaryTangent, α, W′)
     return transport_parallel!(copy(Θ), W, Δ, α, W′)
 end
 
-function transport_stiefel!(
-        Θ::UnitaryTangent, W::AbstractTensorMap, Δ::UnitaryTangent,
-        α, W′
-    )
+function transport_stiefel!(Θ::UnitaryTangent, W::AbstractTensorMap, Δ::UnitaryTangent, α, W′)
     W == checkbase(Δ, Θ) || throw(ArgumentError("not a valid tangent vector at base point"))
     A′ = Θ.A
     return UnitaryTangent(W′, A′)
 end
-function transport_stiefel(
-        Θ::UnitaryTangent, W::AbstractTensorMap, Δ::UnitaryTangent,
-        α, W′
-    )
+function transport_stiefel(Θ::UnitaryTangent, W::AbstractTensorMap, Δ::UnitaryTangent, α, W′)
     return transport_stiefel!(copy(Θ), W, Δ, α, W′)
 end
 

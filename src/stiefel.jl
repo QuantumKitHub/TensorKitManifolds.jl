@@ -10,6 +10,8 @@ using ..TensorKitManifolds: projectcomplement!, _stiefelexp, _stiefellog, scalar
 import ..TensorKitManifolds: base, checkbase,
     inner, retract, transport, transport!
 
+import VectorInterface as VI
+
 # special type to store tangent vectors using A and Z = Q*R,
 struct StiefelTangent{T <: AbstractTensorMap, TA <: AbstractTensorMap}
     W::T
@@ -37,41 +39,85 @@ function Base.:-(Δ₁::StiefelTangent, Δ₂::StiefelTangent)
 end
 Base.:-(Δ::StiefelTangent) = (-1) * Δ
 
-Base.:*(Δ::StiefelTangent, α::Real) = rmul!(copy(Δ), α)
-Base.:*(α::Real, Δ::StiefelTangent) = lmul!(α, copy(Δ))
-Base.:/(Δ::StiefelTangent, α::Real) = rmul!(copy(Δ), inv(α))
-Base.:\(α::Real, Δ::StiefelTangent) = lmul!(inv(α), copy(Δ))
+Base.:*(Δ::StiefelTangent, α::Real) = StiefelTangent(base(Δ), Δ.A * α, Δ.Z * α)
+Base.:*(α::Real, Δ::StiefelTangent) = StiefelTangent(base(Δ), α * Δ.A, α * Δ.Z)
+Base.:/(Δ::StiefelTangent, α::Real) = StiefelTangent(base(Δ), Δ.A / α, Δ.Z / α)
+Base.:\(α::Real, Δ::StiefelTangent) = StiefelTangent(base(Δ), α \ Δ.A, α \ Δ.Z)
 
 Base.zero(Δ::StiefelTangent) = StiefelTangent(Δ.W, zero(Δ.A), zero(Δ.Z))
 
-function TensorKit.rmul!(Δ::StiefelTangent, α::Real)
-    rmul!(Δ.A, α)
-    rmul!(Δ.Z, α)
-    return Δ
-end
-function TensorKit.lmul!(α::Real, Δ::StiefelTangent)
-    lmul!(α, Δ.A)
-    lmul!(α, Δ.Z)
-    return Δ
-end
-function TensorKit.axpy!(α::Real, Δx::StiefelTangent, Δy::StiefelTangent)
-    checkbase(Δx, Δy)
-    axpy!(α, Δx.A, Δy.A)
-    axpy!(α, Δx.Z, Δy.Z)
-    return Δy
-end
-function TensorKit.axpby!(α::Real, Δx::StiefelTangent, β::Real, Δy::StiefelTangent)
-    checkbase(Δx, Δy)
-    axpby!(α, Δx.A, β, Δy.A)
-    axpby!(α, Δx.Z, β, Δy.Z)
-    return Δy
+function Base.isapprox(Δ₁::StiefelTangent, Δ₂::StiefelTangent; kwargs...)
+    checkbase(Δ₁, Δ₂)
+    return isapprox(Δ₁[], Δ₂[]; kwargs...)
 end
 
-function TensorKit.dot(Δ₁::StiefelTangent, Δ₂::StiefelTangent)
-    checkbase(Δ₁, Δ₂)
-    return dot(Δ₁.A, Δ₂.A) + dot(Δ₁.Z, Δ₂.Z)
+# VectorInterface methods
+VI.scalartype(Δ::StiefelTangent) = VI.scalartype(Δ.A)
+
+function VI.zerovector(Δ::StiefelTangent, T::Type{<:Number} = VI.scalartype(Δ))
+    return StiefelTangent(base(Δ), VI.zerovector(Δ.A, T), VI.zerovector(Δ.Z, T))
 end
-TensorKit.norm(Δ::StiefelTangent, p::Real = 2) = norm((norm(Δ.A, p), norm(Δ.Z, p)), p)
+function VI.zerovector!(Δ::StiefelTangent)
+    VI.zerovector!(Δ.A)
+    VI.zerovector!(Δ.Z)
+    return Δ
+end
+VI.zerovector!!(Δ::StiefelTangent) = VI.zerovector!(Δ)
+
+function VI.scale(Δ::StiefelTangent, α::Real)
+    return StiefelTangent(base(Δ), VI.scale(Δ.A, α), VI.scale(Δ.Z, α))
+end
+function VI.scale!(Δ::StiefelTangent, α::Real)
+    VI.scale!(Δ.A, α)
+    VI.scale!(Δ.Z, α)
+    return Δ
+end
+function VI.scale!!(Δ::StiefelTangent, α::Real)
+    A′ = VI.scale!!(Δ.A, α)
+    Z′ = VI.scale!!(Δ.Z, α)
+    return A′ === Δ.A && Z′ === Δ.Z ? Δ : StiefelTangent(base(Δ), A′, Z′)
+end
+
+function VI.scale!(Δy::StiefelTangent, Δx::StiefelTangent, α::Real)
+    VI.scale!(Δy.A, Δx.A, α)
+    VI.scale!(Δy.Z, Δx.Z, α)
+    return Δy
+end
+function VI.scale!!(Δy::StiefelTangent, Δx::StiefelTangent, α::Real)
+    A′ = VI.scale!!(Δy.A, Δx.A, α)
+    Z′ = VI.scale!!(Δy.Z, Δx.Z, α)
+    return A′ === Δy.A && Z′ === Δy.Z ? Δy : StiefelTangent(base(Δy), A′, Z′)
+end
+
+function VI.add(Δy::StiefelTangent, Δx::StiefelTangent, α::Real, β::Real)
+    return StiefelTangent(checkbase(Δy, Δx), VI.add(Δy.A, Δx.A, α, β), VI.add(Δy.Z, Δx.Z, α, β))
+end
+function VI.add!(Δy::StiefelTangent, Δx::StiefelTangent, α::Real, β::Real)
+    checkbase(Δy, Δx)
+    VI.add!(Δy.A, Δx.A, α, β)
+    VI.add!(Δy.Z, Δx.Z, α, β)
+    return Δy
+end
+function VI.add!!(Δy::StiefelTangent, Δx::StiefelTangent, α::Real, β::Real)
+    checkbase(Δy, Δx)
+    A′ = VI.add!!(Δy.A, Δx.A, α, β)
+    Z′ = VI.add!!(Δy.Z, Δx.Z, α, β)
+    return A′ === Δy.A && Z′ === Δy.Z ? Δy : StiefelTangent(base(Δy), A′, Z′)
+end
+
+function VI.inner(Δ₁::StiefelTangent, Δ₂::StiefelTangent)
+    checkbase(Δ₁, Δ₂)
+    return VI.inner(Δ₁.A, Δ₂.A) + VI.inner(Δ₁.Z, Δ₂.Z)
+end
+
+VI.norm(Δ::StiefelTangent, p::Real = 2) = norm((norm(Δ.A, p), norm(Δ.Z, p)), p)
+
+# For backward compatibility: LinearAlgebra methods
+TensorKit.rmul!(Δ::StiefelTangent, α::Real) = VI.scale!(Δ, α)
+TensorKit.lmul!(α::Real, Δ::StiefelTangent) = VI.scale!(Δ, α)
+TensorKit.axpy!(α::Real, Δx::StiefelTangent, Δy::StiefelTangent) = VI.add!(Δy, Δx, α)
+TensorKit.axpby!(α::Real, Δx::StiefelTangent, β::Real, Δy::StiefelTangent) = VI.add!(Δy, Δx, α, β)
+TensorKit.dot(Δ₁::StiefelTangent, Δ₂::StiefelTangent) = VI.inner(Δ₁, Δ₂)
 
 # tangent space methods
 function inner(
@@ -117,10 +163,7 @@ function invretract(Wold::AbstractTensorMap, Wnew::AbstractTensorMap; alg = :exp
         throw(ArgumentError("unknown algorithm: `alg = $alg`"))
     end
 end
-function transport!(
-        Θ::StiefelTangent, W::AbstractTensorMap, Δ::StiefelTangent, α::Real, W′;
-        alg = :exp
-    )
+function transport!(Θ::StiefelTangent, W::AbstractTensorMap, Δ::StiefelTangent, α::Real, W′; alg = :exp)
     if alg == :exp
         return transport_exp!(Θ, W, Δ, α, W′)
     elseif alg == :cayley
@@ -129,10 +172,7 @@ function transport!(
         throw(ArgumentError("unknown algorithm: `alg = $alg`"))
     end
 end
-function transport(
-        Θ::StiefelTangent, W::AbstractTensorMap, Δ::StiefelTangent, α::Real, W′;
-        alg = :exp
-    )
+function transport(Θ::StiefelTangent, W::AbstractTensorMap, Δ::StiefelTangent, α::Real, W′; alg = :exp)
     return transport!(copy(Θ), W, Δ, α, W′; alg = alg)
 end
 
@@ -216,10 +256,7 @@ end
 # isometric for both euclidean and canonical metric
 # not parallel transport for either metric as the corresponding connection has torsion
 # can be computed efficiently: O(np^2) + O(p^3)
-function transport_exp!(
-        Θ::StiefelTangent, W::AbstractTensorMap,
-        Δ::StiefelTangent, α::Real, W′::AbstractTensorMap
-    )
+function transport_exp!(Θ::StiefelTangent, W::AbstractTensorMap, Δ::StiefelTangent, α::Real, W′::AbstractTensorMap)
     W == checkbase(Δ, Θ) || throw(ArgumentError("not a valid tangent vector at base point"))
     # TODO: stiefelexp call does not depend on Θ
     # cache result or find some other way not to recompute this information
@@ -232,10 +269,7 @@ function transport_exp!(
     Z′ = projectcomplement!(mul!(Z, (Q′ - Q), QZ, 1, 1), W′)
     return StiefelTangent(W′, A′, Z′)
 end
-function transport_exp(
-        Θ::StiefelTangent, W::AbstractTensorMap, Δ::StiefelTangent, α::Real,
-        W′
-    )
+function transport_exp(Θ::StiefelTangent, W::AbstractTensorMap, Δ::StiefelTangent, α::Real, W′)
     return transport_exp!(copy(Θ), W, Δ, α, W′)
 end
 
@@ -267,10 +301,7 @@ end
 # vector transport compatible with above `retract_caley`, but not differentiated retraction
 # isometric for both euclidean and canonical metric
 # can be computed efficiently: O(np^2) + O(p^3)
-function transport_cayley!(
-        Θ::StiefelTangent, W::AbstractTensorMap, Δ::StiefelTangent,
-        α::Real, W′
-    )
+function transport_cayley!(Θ::StiefelTangent, W::AbstractTensorMap, Δ::StiefelTangent, α::Real, W′)
     W == checkbase(Δ, Θ) || throw(ArgumentError("not a valid tangent vector at base point"))
     A, Z = Δ.A, Δ.Z
     X = axpy!(α^2 / 4, Z' * Z, axpy!(-α / 2, A, one(A)))
@@ -279,10 +310,7 @@ function transport_cayley!(
     Z′ = projectcomplement!(axpy!(-α, (W + (α / 2) * Z) * (X \ ZdZ), Θ.Z), W′)
     return StiefelTangent(W′, A′, Z′)
 end
-function transport_cayley(
-        Θ::StiefelTangent, W::AbstractTensorMap, Δ::StiefelTangent,
-        α::Real, W′
-    )
+function transport_cayley(Θ::StiefelTangent, W::AbstractTensorMap, Δ::StiefelTangent, α::Real, W′)
     return transport_cayley!(copy(Θ), W, Δ, α, W′)
 end
 
