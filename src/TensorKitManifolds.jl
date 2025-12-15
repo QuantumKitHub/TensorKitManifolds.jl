@@ -1,9 +1,6 @@
 module TensorKitManifolds
 
-export base, checkbase, isisometry, isunitary
-export projectcomplement, projectcomplement!
 export Grassmann, Stiefel, Unitary
-export inner, retract, transport, transport!
 
 using TensorKit
 using MatrixAlgebraKit: MatrixAlgebraKit, AbstractAlgorithm, Algorithm, PolarViaSVD,
