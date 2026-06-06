@@ -1,7 +1,7 @@
 name = "TensorKitManifolds"
 uuid = "11fa318c-39cb-4a83-b1ed-cdc7ba1e3684"
 authors = ["Jutho Haegeman <jutho.haegeman@ugent.be>", "Markus Hauru <markus@mhauru.org>"]
-version = "0.8.0"
+version = "0.8.1"
 
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
@@ -12,8 +12,8 @@ VectorInterface = "409d34a3-91d5-4945-b6ec-7529ddf182d8"
 [compat]
 LinearAlgebra = "1"
 MatrixAlgebraKit = "0.6"
-TensorKit = "0.16"
-VectorInterface = "0.4.8, 0.5"
+TensorKit = "0.16, 0.17"
+VectorInterface = "0.4.8, 0.5, 0.6"
 julia = "1.10"
 
 [workspace]
