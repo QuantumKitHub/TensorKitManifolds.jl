@@ -13,5 +13,6 @@ VectorInterface = "409d34a3-91d5-4945-b6ec-7529ddf182d8"
 
 [compat]
 Aqua = "0.6, 0.7, 0.8"
+TensorKit = "0.17.1"
 Test = "1"
 TestExtras = "0.2, 0.3"
